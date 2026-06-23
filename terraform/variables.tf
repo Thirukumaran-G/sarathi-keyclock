@@ -592,3 +592,15 @@ variable "sql_networking_peering_address_name" {
   description = "Name for the Cloud SQL VPC peering address"
   type        = string
 }
+
+variable "data_disk_size" {
+  description = "Size in GB of the Keycloak data disk"
+  type        = number
+  default     = 20
+}
+
+variable "data_disk_type" {
+  description = "Disk type for the Keycloak data disk"
+  type        = string
+  default     = "pd-balanced"
+}

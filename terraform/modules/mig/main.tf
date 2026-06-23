@@ -40,6 +40,12 @@ resource "google_compute_region_instance_group_manager" "keycloak" {
     max_unavailable_fixed = var.max_unavailable
     replacement_method    = var.replacement_method
   }
+
+  # ←←← ADD THIS BLOCK
+  stateful_disk {
+    device_name = "keycloak-data"
+    delete_rule = "NEVER"
+  }
 }
 
 resource "google_compute_region_autoscaler" "keycloak" {

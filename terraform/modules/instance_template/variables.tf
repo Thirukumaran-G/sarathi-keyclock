@@ -277,3 +277,15 @@ variable "labels" {
   description = "Labels to apply"
   type        = map(string)
 }
+
+variable "data_disk_size" {
+  description = "Size in GB of the Keycloak data disk"
+  type        = number
+  default     = 50
+}
+
+variable "data_disk_type" {
+  description = "Disk type for the Keycloak data disk"
+  type        = string
+  default     = "pd-balanced"
+}

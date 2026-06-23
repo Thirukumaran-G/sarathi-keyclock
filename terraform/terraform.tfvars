@@ -2,7 +2,7 @@ project_id            = "gwx-devops-internship"
 region                = "us-central1"
 zone                  = "us-central1-a"
 environment           = "dev"
-domain_name           = "sarthi.io"
+domain_name           = "dev.sarthi.io"
 dns_managed_zone_name = "sarthi-io-zone"
 dns_record_ttl        = 300
 dns_record_type       = "A"
@@ -146,3 +146,6 @@ journald_max_file_size     = "100M"
 journald_max_retention_sec = "2592000"
 
 ssl_cert_domains = ["keycloak.dev.sarthi.io"]
+
+data_disk_size = 10
+data_disk_type = "pd-balanced"

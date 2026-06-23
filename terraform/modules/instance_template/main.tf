@@ -40,6 +40,7 @@ locals {
   })
 }
 
+
 resource "google_compute_instance_template" "keycloak" {
   project      = var.project_id
   name_prefix  = "${var.template_name}-"
@@ -54,6 +55,15 @@ resource "google_compute_instance_template" "keycloak" {
     boot         = true
     disk_size_gb = var.boot_disk_size
     disk_type    = var.boot_disk_type
+  }
+
+  disk {
+    device_name  = "keycloak-data"
+    auto_delete  = true
+    boot         = false
+    disk_size_gb = var.data_disk_size
+    disk_type    = var.data_disk_type
+    type         = "PERSISTENT"
   }
 
   network_interface {

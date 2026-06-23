@@ -19,6 +19,8 @@ module "instance_template" {
   shielded_vtpm                 = var.shielded_vtpm
   shielded_integrity_monitoring = var.shielded_integrity_monitoring
   create_before_destroy         = var.template_create_before_destroy
+  data_disk_size                = var.data_disk_size
+  data_disk_type                = var.data_disk_type
   keycloak_version              = var.keycloak_version
   keycloak_port                 = var.keycloak_port
   keycloak_db_name              = var.keycloak_db_name
