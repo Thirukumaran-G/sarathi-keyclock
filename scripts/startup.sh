@@ -214,19 +214,19 @@ ENVIRONMENT="$ENVIRONMENT"
 BACKUP_BUCKET="$BACKUP_BUCKET"
 COMPOSE_FILE="$COMPOSE_FILE"
 DATE=\$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-\${ENVIRONMENT}-\${DATE}.json"
-BACKUP_PATH="/tmp/\${BACKUP_FILE}"
+BACKUP_FILE="keycloak-realm-$${ENVIRONMENT}-$${DATE}.json"
+BACKUP_PATH="/tmp/$${BACKUP_FILE}"
 
-docker compose -f "\$COMPOSE_FILE" exec -T keycloak \
+docker compose -f "$COMPOSE_FILE" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=\$(docker compose -f "\$COMPOSE_FILE" ps -q keycloak)
-docker cp "\${CONTAINER_ID}:/tmp/realm-export.json" "\$BACKUP_PATH"
+CONTAINER_ID=\$(docker compose -f "$COMPOSE_FILE" ps -q keycloak)
+docker cp "$${CONTAINER_ID}:/tmp/realm-export.json" "$BACKUP_PATH"
 
-gcloud storage cp "\$BACKUP_PATH" "gs://\${BACKUP_BUCKET}/\${BACKUP_FILE}"
-rm -f "\$BACKUP_PATH"
-echo "Backup complete: gs://\${BACKUP_BUCKET}/\${BACKUP_FILE}"
+gcloud storage cp "$BACKUP_PATH" "gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
+rm -f "$BACKUP_PATH"
+echo "Backup complete: gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
 BACKUPEOF
 
 chmod +x /usr/local/bin/keycloak-backup.sh
