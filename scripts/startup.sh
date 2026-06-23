@@ -13,11 +13,8 @@ ADMIN_SECRET_NAME="${admin_secret_name}"
 DB_SECRET_NAME="${db_secret_name}"
 BACKUP_BUCKET="${backup_bucket_name}"
 ENVIRONMENT="${environment}"
-DOCKER_LOG_MAX_SIZE="${docker_log_max_size}"
-DOCKER_LOG_MAX_FILE="${docker_log_max_file}"
 KEYCLOAK_HOSTNAME="${keycloak_hostname}"
 INFINISPAN_PORT="${infinispan_port}"
-SUBNET_CIDR="${subnet_cidr}"
 
 DATA_DIR="/data/keycloak"
 COMPOSE_FILE="$DATA_DIR/docker-compose.yml"
@@ -50,7 +47,8 @@ else
   log "Docker present — skipping"
 fi
 
-# ---- step 2: docker log rotation ----
+# ---- step 2: docker logging to cloud logging ----
+log "Configuring Docker gcplogs driver"
 cat > /etc/docker/daemon.json <<EOF
 {
   "log-driver": "gcplogs",
@@ -62,9 +60,8 @@ cat > /etc/docker/daemon.json <<EOF
 EOF
 systemctl reload-or-restart docker || true
 
-# ---- step 3: idempotent data disk handling + restore logic ----
+# ---- step 3: data disk ----
 log "Checking data disk"
-
 DATA_DEVICE=""
 for dev in /dev/disk/by-id/*; do
   if [[ "$dev" == *"$DATA_DEVICE_NAME"* ]] && [[ "$dev" != *"-part"* ]]; then
@@ -80,7 +77,6 @@ fi
 
 log "Data disk found: $DATA_DEVICE"
 
-# Format ONLY if brand new (idempotent)
 if ! blkid "$DATA_DEVICE" | grep -q "TYPE="; then
   log "New blank disk detected → Formatting with ext4"
   mkfs.ext4 -F "$DATA_DEVICE"
@@ -92,7 +88,6 @@ fi
 DISK_UUID=$(blkid -s UUID -o value "$DATA_DEVICE")
 mkdir -p "$DATA_DIR"
 
-# Update fstab only if missing
 if ! grep -q "$DISK_UUID" /etc/fstab; then
   echo "UUID=$DISK_UUID $DATA_DIR ext4 defaults,nofail 0 2" >> /etc/fstab
   log "fstab updated"
@@ -100,7 +95,6 @@ else
   log "fstab entry already exists"
 fi
 
-# Mount if not already mounted
 if ! mountpoint -q "$DATA_DIR"; then
   mount "$DATA_DIR" || true
   log "Disk mounted at $DATA_DIR"
@@ -108,14 +102,7 @@ else
   log "Disk already mounted"
 fi
 
-# Check compose file status
-if [[ ! -f "$COMPOSE_FILE" ]] || [[ ! -s "$COMPOSE_FILE" ]]; then
-  log "docker-compose.yml missing or empty → will be created below"
-else
-  log "docker-compose.yml already exists on persistent disk"
-fi
-
-# ---- step 4: get vm internal ip for infinispan bind ----
+# ---- step 4: vm ip ----
 VM_IP=$(curl -sf \
   "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip" \
   -H "Metadata-Flavor: Google")
@@ -131,9 +118,13 @@ log "Secrets fetched"
 
 # ---- step 6: write docker-compose.yml ----
 log "Writing docker-compose.yml"
-CLOUD_SQL_CONNECTION="$${PROJECT_ID}:$${REGION}:$${CLOUD_SQL_INSTANCE}"
 
-cat > "$COMPOSE_FILE" <<EOF
+# Build connection string from bash vars (already substituted by Terraform above)
+CLOUD_SQL_CONNECTION="$PROJECT_ID:$REGION:$CLOUD_SQL_INSTANCE"
+
+# Use 'ENDDOCKER' as quoted delimiter so bash does NOT expand variables inside
+# All $VAR inside will be literal — we substitute manually using printf or env
+cat > "$COMPOSE_FILE" <<ENDDOCKER
 version: "3.8"
 
 services:
@@ -144,11 +135,6 @@ services:
       - "--port=5432"
       - "$CLOUD_SQL_CONNECTION"
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "$DOCKER_LOG_MAX_SIZE"
-        max-file: "$DOCKER_LOG_MAX_FILE"
 
   keycloak:
     image: quay.io/keycloak/keycloak:$KEYCLOAK_VERSION
@@ -179,14 +165,11 @@ services:
     depends_on:
       - cloudsql-proxy
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "$DOCKER_LOG_MAX_SIZE"
-        max-file: "$DOCKER_LOG_MAX_FILE"
-EOF
+ENDDOCKER
 
 log "docker-compose.yml written"
+log "Compose file contents:"
+cat "$COMPOSE_FILE"
 
 # ---- step 7: start stack ----
 log "Starting Docker Compose stack"
@@ -195,7 +178,7 @@ log "Stack started"
 
 # ---- step 8: systemd service ----
 log "Installing systemd service"
-cat > /etc/systemd/system/keycloak-compose.service <<EOF
+cat > /etc/systemd/system/keycloak-compose.service <<SYSTEMDEOF
 [Unit]
 Description=Keycloak Docker Compose Stack
 Requires=docker.service
@@ -212,7 +195,7 @@ TimeoutStartSec=180
 
 [Install]
 WantedBy=multi-user.target
-EOF
+SYSTEMDEOF
 
 systemctl daemon-reload
 systemctl enable keycloak-compose.service
@@ -220,26 +203,26 @@ log "Systemd service installed"
 
 # ---- step 9: backup cron ----
 log "Installing backup cron"
-cat > /usr/local/bin/keycloak-backup.sh <<BACKUPEOF
+cat > /usr/local/bin/keycloak-backup.sh <<'BACKUPEOF'
 #!/bin/bash
 set -euo pipefail
-ENVIRONMENT="$ENVIRONMENT"
-BACKUP_BUCKET="$BACKUP_BUCKET"
-COMPOSE_FILE="$COMPOSE_FILE"
-DATE=\$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-\$$ENVIRONMENT-\$DATE.json"
-BACKUP_PATH="/tmp/\$BACKUP_FILE"
+COMPOSE_FILE="/data/keycloak/docker-compose.yml"
+DATE=$(date +%Y%m%d)
+BACKUP_FILE="keycloak-realm-$(hostname)-$DATE.json"
+BACKUP_PATH="/tmp/$BACKUP_FILE"
 
-docker compose -f "\$COMPOSE_FILE" exec -T keycloak \
+BACKUP_BUCKET=$(docker compose -f "$COMPOSE_FILE" config | grep BACKUP_BUCKET | awk '{print $2}')
+
+docker compose -f "$COMPOSE_FILE" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=\$(docker compose -f "\$COMPOSE_FILE" ps -q keycloak)
-docker cp "\$CONTAINER_ID:/tmp/realm-export.json" "\$BACKUP_PATH"
+CONTAINER_ID=$(docker compose -f "$COMPOSE_FILE" ps -q keycloak)
+docker cp "$CONTAINER_ID:/tmp/realm-export.json" "$BACKUP_PATH"
 
-gcloud storage cp "\$BACKUP_PATH" "gs://\$$BACKUP_BUCKET/\$BACKUP_FILE"
-rm -f "\$BACKUP_PATH"
-echo "Backup complete: gs://\$$BACKUP_BUCKET/\$BACKUP_FILE"
+gcloud storage cp "$BACKUP_PATH" "gs://$BACKUP_BUCKET/$BACKUP_FILE"
+rm -f "$BACKUP_PATH"
+echo "Backup complete: gs://$BACKUP_BUCKET/$BACKUP_FILE"
 BACKUPEOF
 
 chmod +x /usr/local/bin/keycloak-backup.sh
@@ -256,23 +239,25 @@ fi
 # ---- step 10: journald retention ----
 log "Configuring journald retention"
 mkdir -p /etc/systemd/journald.conf.d
-cat > /etc/systemd/journald.conf.d/keycloak.conf <<EOF
+cat > /etc/systemd/journald.conf.d/keycloak.conf <<JOURNALEOF
 [Journal]
 SystemMaxUse=500M
 SystemMaxFileSize=100M
 MaxRetentionSec=2592000
-EOF
+JOURNALEOF
 systemctl restart systemd-journald || true
 log "journald configured"
 
-# ---- step 11: health check ----
+# ---- step 11: health check (increased to 60 attempts = 10 mins) ----
 log "Waiting for Keycloak health"
-MAX_ATTEMPTS=36
+MAX_ATTEMPTS=60
 ATTEMPT=0
 until curl -sf "http://localhost:$KEYCLOAK_PORT/health/started" >/dev/null 2>&1; do
   ATTEMPT=$((ATTEMPT + 1))
   if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
-    log "ERROR: Keycloak did not become healthy"
+    log "ERROR: Keycloak did not become healthy after $((MAX_ATTEMPTS * 10))s"
+    log "--- Last docker compose logs ---"
+    docker compose -f "$COMPOSE_FILE" logs --tail=30
     exit 1
   fi
   log "Attempt $ATTEMPT/$MAX_ATTEMPTS — waiting 10s"
