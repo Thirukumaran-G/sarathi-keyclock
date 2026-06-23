@@ -21,9 +21,9 @@ resource "google_compute_health_check" "keycloak_lb" {
 resource "google_compute_backend_service" "keycloak" {
   project               = var.project_id
   name                  = "${var.lb_name}-backend"
-  protocol              = var.lb_protocol
+  protocol              = "HTTP"
   port_name             = var.lb_port_name
-  load_balancing_scheme = var.lb_scheme
+  load_balancing_scheme = "EXTERNAL"
   timeout_sec           = var.lb_timeout_sec
   session_affinity      = var.lb_session_affinity
 
@@ -57,53 +57,19 @@ resource "google_compute_url_map" "keycloak" {
   }
 }
 
-resource "google_compute_managed_ssl_certificate" "keycloak" {
-  project = var.project_id
-  name    = var.ssl_cert_name
-
-  managed {
-    domains = var.ssl_cert_domains
-  }
-}
-
-resource "google_compute_target_https_proxy" "keycloak" {
-  project          = var.project_id
-  name             = "${var.lb_name}-https-proxy"
-  url_map          = google_compute_url_map.keycloak.id
-  ssl_certificates = [google_compute_managed_ssl_certificate.keycloak.id]
-}
-
-resource "google_compute_global_forwarding_rule" "keycloak_https" {
-  project               = var.project_id
-  name                  = "${var.lb_name}-https-fwd"
-  target                = google_compute_target_https_proxy.keycloak.id
-  port_range            = var.lb_https_port
-  ip_address            = google_compute_global_address.lb_ip.address
-  load_balancing_scheme = var.lb_scheme
-}
-
-resource "google_compute_url_map" "http_redirect" {
-  project = var.project_id
-  name    = "${var.lb_name}-http-redirect"
-
-  default_url_redirect {
-    https_redirect         = true
-    redirect_response_code = var.lb_http_redirect_response_code
-    strip_query            = false
-  }
-}
-
-resource "google_compute_target_http_proxy" "redirect" {
+# HTTP Proxy
+resource "google_compute_target_http_proxy" "keycloak" {
   project = var.project_id
   name    = "${var.lb_name}-http-proxy"
-  url_map = google_compute_url_map.http_redirect.id
+  url_map = google_compute_url_map.keycloak.id
 }
 
-resource "google_compute_global_forwarding_rule" "http_redirect" {
+# HTTP Forwarding Rule (Only this one)
+resource "google_compute_global_forwarding_rule" "keycloak_http" {
   project               = var.project_id
   name                  = "${var.lb_name}-http-fwd"
-  target                = google_compute_target_http_proxy.redirect.id
-  port_range            = var.lb_http_port
+  target                = google_compute_target_http_proxy.keycloak.id
+  port_range            = "80"
   ip_address            = google_compute_global_address.lb_ip.address
-  load_balancing_scheme = var.lb_scheme
+  load_balancing_scheme = "EXTERNAL"
 }

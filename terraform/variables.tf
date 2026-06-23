@@ -353,18 +353,9 @@ variable "lb_log_sample_rate" {
   type        = number
 }
 
-variable "lb_https_port" {
-  description = "HTTPS port for forwarding rule"
-  type        = string
-}
 
 variable "lb_http_port" {
   description = "HTTP port for redirect forwarding rule"
-  type        = string
-}
-
-variable "lb_http_redirect_response_code" {
-  description = "HTTP to HTTPS redirect response code"
   type        = string
 }
 
@@ -443,10 +434,6 @@ variable "sa_roles" {
   type        = list(string)
 }
 
-variable "ssl_cert_domains" {
-  description = "Domains for managed SSL certificate"
-  type        = list(string)
-}
 
 variable "infinispan_port" {
   description = "Infinispan JGroups cluster communication port"

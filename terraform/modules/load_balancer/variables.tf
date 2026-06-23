@@ -18,15 +18,6 @@ variable "lb_hc_name" {
   type        = string
 }
 
-variable "ssl_cert_name" {
-  description = "SSL certificate resource name"
-  type        = string
-}
-
-variable "ssl_cert_domains" {
-  description = "Domains for SSL certificate"
-  type        = list(string)
-}
 
 variable "mig_self_link" {
   description = "MIG instance group self link"
@@ -114,20 +105,12 @@ variable "lb_log_sample_rate" {
   type        = number
 }
 
-variable "lb_https_port" {
-  description = "HTTPS forwarding port"
-  type        = string
-}
 
 variable "lb_http_port" {
   description = "HTTP redirect port"
   type        = string
 }
 
-variable "lb_http_redirect_response_code" {
-  description = "HTTP to HTTPS redirect response code"
-  type        = string
-}
 
 variable "labels" {
   description = "Labels to apply"
