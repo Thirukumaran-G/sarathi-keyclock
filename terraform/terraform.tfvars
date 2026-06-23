@@ -29,7 +29,7 @@ mig_cpu_target         = 0.7
 mig_initial_delay_sec  = 300
 mig_update_type        = "PROACTIVE"
 mig_minimal_action     = "REPLACE"
-mig_max_surge          = 1
+mig_max_surge          = 3
 mig_max_unavailable    = 0
 mig_replacement_method = "SUBSTITUTE"
 
