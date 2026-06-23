@@ -51,13 +51,12 @@ else
 fi
 
 # ---- step 2: docker log rotation ----
-log "Configuring Docker log rotation"
 cat > /etc/docker/daemon.json <<EOF
 {
-  "log-driver": "json-file",
+  "log-driver": "gcplogs",
   "log-opts": {
-    "max-size": "$DOCKER_LOG_MAX_SIZE",
-    "max-file": "$DOCKER_LOG_MAX_FILE"
+    "gcp-project": "$PROJECT_ID",
+    "gcp-log-cmd": "true"
   }
 }
 EOF
