@@ -41,6 +41,10 @@ resource "google_compute_backend_service" "keycloak" {
     enable      = true
     sample_rate = var.lb_log_sample_rate
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_compute_url_map" "keycloak" {
