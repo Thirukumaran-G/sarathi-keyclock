@@ -98,9 +98,7 @@ lb_balancing_mode              = "UTILIZATION"
 lb_capacity_scaler             = 1.0
 lb_session_affinity            = "NONE"
 lb_log_sample_rate             = 1.0
-lb_https_port                  = "443"
 lb_http_port                   = "80"
-lb_http_redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
 
 backup_retention_days     = 30
 backup_num_newer_versions = 3
@@ -145,7 +143,6 @@ journald_max_use           = "500M"
 journald_max_file_size     = "100M"
 journald_max_retention_sec = "2592000"
 
-ssl_cert_domains = ["keycloak.dev.sarthi.io"]
 
 data_disk_size = 10
 data_disk_type = "pd-balanced"
