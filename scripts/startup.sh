@@ -120,7 +120,7 @@ log "Secrets fetched"
 
 # ---- step 6: write docker-compose.yml ----
 log "Writing docker-compose.yml"
-CLOUD_SQL_CONNECTION="${PROJECT_ID}:${REGION}:${CLOUD_SQL_INSTANCE}"
+CLOUD_SQL_CONNECTION="$${PROJECT_ID}:$${REGION}:$${CLOUD_SQL_INSTANCE}"
 
 cat > "$COMPOSE_FILE" <<EOF
 version: "3.8"
