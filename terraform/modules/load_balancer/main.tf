@@ -20,28 +20,28 @@ resource "google_compute_health_check" "keycloak_lb" {
   unhealthy_threshold = var.health_check_unhealthy_threshold
 }
 
-resource "google_compute_backend_service" "keycloak" {
-  project               = var.project_id
-  name                  = "${var.lb_name}-backend"
-  protocol              = "HTTP"
-  port_name             = var.lb_port_name
-  load_balancing_scheme = "EXTERNAL"
-  timeout_sec           = var.lb_timeout_sec
-  session_affinity      = var.lb_session_affinity
+# resource "google_compute_backend_service" "keycloak" {
+#   project               = var.project_id
+#   name                  = "${var.lb_name}-backend"
+#   protocol              = "HTTP"
+#   port_name             = var.lb_port_name
+#   load_balancing_scheme = "EXTERNAL"
+#   timeout_sec           = var.lb_timeout_sec
+#   session_affinity      = var.lb_session_affinity
 
-  backend {
-    group           = var.mig_self_link
-    balancing_mode  = var.lb_balancing_mode
-    capacity_scaler = var.lb_capacity_scaler
-  }
+#   backend {
+#     group           = var.mig_self_link
+#     balancing_mode  = var.lb_balancing_mode
+#     capacity_scaler = var.lb_capacity_scaler
+#   }
 
-  health_checks = [google_compute_health_check.keycloak_lb.id]
+#   health_checks = [google_compute_health_check.keycloak_lb.id]
 
-  log_config {
-    enable      = true
-    sample_rate = var.lb_log_sample_rate
-  }
-}
+#   log_config {
+#     enable      = true
+#     sample_rate = var.lb_log_sample_rate
+#   }
+# }
 
 resource "google_compute_url_map" "keycloak" {
   project         = var.project_id
