@@ -18,7 +18,7 @@ module "load_balancer" {
 
   lb_protocol                   = "HTTP"
   lb_port_name                  = var.lb_port_name
-  lb_scheme                     = "EXTERNAL"
+  lb_scheme = var.lb_scheme
   lb_timeout_sec                = var.lb_timeout_sec
   lb_balancing_mode             = var.lb_balancing_mode
   lb_capacity_scaler            = var.lb_capacity_scaler
