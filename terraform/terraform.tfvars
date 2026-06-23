@@ -60,7 +60,7 @@ cloud_sql_backup_start_time    = "02:00"
 cloud_sql_maintenance_day      = 7
 cloud_sql_maintenance_hour     = 3
 cloud_sql_maintenance_track    = "stable"
-cloud_sql_deletion_protection  = true
+cloud_sql_deletion_protection  = false
 cloud_sql_ipv4_enabled         = false
 cloud_sql_private_path_enabled = true
 
