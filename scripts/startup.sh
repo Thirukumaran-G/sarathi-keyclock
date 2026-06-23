@@ -156,6 +156,7 @@ services:
     command: start
     environment:
       KC_HOSTNAME: "$KEYCLOAK_HOSTNAME"
+      KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
