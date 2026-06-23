@@ -63,8 +63,10 @@ cat > /etc/docker/daemon.json <<EOF
 EOF
 systemctl reload-or-restart docker || true
 
-# ---- step 3: format and mount data disk (idempotent) ----
+# ---- step 3: format and mount data disk + restore from backup ----
+# ---- step 3: idempotent data disk handling + restore ----
 log "Checking data disk"
+
 DATA_DEVICE=""
 for dev in /dev/disk/by-id/*; do
   if [[ "$dev" == *"$DATA_DEVICE_NAME"* ]] && [[ "$dev" != *"-part"* ]]; then
@@ -78,31 +80,56 @@ if [[ -z "$DATA_DEVICE" ]]; then
   exit 1
 fi
 
-log "Data disk: $DATA_DEVICE"
+log "Data disk found: $DATA_DEVICE"
 
-if ! blkid "$DATA_DEVICE" | grep -q "ext4"; then
-  log "Formatting data disk"
+# Format ONLY if brand new (idempotent)
+if ! blkid "$DATA_DEVICE" | grep -q "TYPE="; then
+  log "New blank disk detected → Formatting with ext4"
   mkfs.ext4 -F "$DATA_DEVICE"
+  log "Disk formatted"
+else
+  log "Disk already has filesystem → skipping format"
 fi
 
 DISK_UUID=$(blkid -s UUID -o value "$DATA_DEVICE")
-log "UUID: $DISK_UUID"
-
 mkdir -p "$DATA_DIR"
 
+# Update fstab only if missing (idempotent)
 if ! grep -q "$DISK_UUID" /etc/fstab; then
   echo "UUID=$DISK_UUID $DATA_DIR ext4 defaults,nofail 0 2" >> /etc/fstab
   log "fstab updated"
-fi
-
-if ! mountpoint -q "$DATA_DIR"; then
-  mount "$DATA_DIR"
-  log "Data disk mounted"
 else
-  log "Already mounted — skipping"
+  log "fstab entry already exists"
 fi
 
-mkdir -p "$DATA_DIR"
+# Mount if not already mounted
+if ! mountpoint -q "$DATA_DIR"; then
+  mount "$DATA_DIR" || true
+  log "Disk mounted at $DATA_DIR"
+else
+  log "Disk already mounted"
+fi
+
+# === Idempotent Restore Logic ===
+if [[ ! -f "$COMPOSE_FILE" ]] || [[ ! -s "$COMPOSE_FILE" ]]; then
+  log "docker-compose.yml missing or empty → restoring from backup"
+
+  # Get latest backup
+  LATEST_BACKUP=$(gsutil ls -l "gs://$BACKUP_BUCKET/keycloak-realm-${ENVIRONMENT}-*.json" 2>/dev/null \
+                  | sort -k2 -r | head -n1 | awk '{print $3}')
+
+  if [[ -n "$LATEST_BACKUP" ]]; then
+    log "Restoring latest backup: $LATEST_BACKUP"
+    gsutil cp "$LATEST_BACKUP" /tmp/latest-realm.json
+    
+    # Optional: Also restore or regenerate compose file
+    log "docker-compose.yml will be recreated below"
+  else
+    log "No backup found - creating fresh compose file"
+  fi
+else
+  log "docker-compose.yml exists and is valid on persistent disk → good"
+fi
 
 # ---- step 4: get vm internal ip for infinispan bind ----
 VM_IP=$(curl -sf \
