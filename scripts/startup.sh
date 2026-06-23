@@ -63,8 +63,7 @@ cat > /etc/docker/daemon.json <<EOF
 EOF
 systemctl reload-or-restart docker || true
 
-# ---- step 3: format and mount data disk + restore from backup ----
-# ---- step 3: idempotent data disk handling + restore ----
+# ---- step 3: idempotent data disk handling + restore logic ----
 log "Checking data disk"
 
 DATA_DEVICE=""
@@ -94,7 +93,7 @@ fi
 DISK_UUID=$(blkid -s UUID -o value "$DATA_DEVICE")
 mkdir -p "$DATA_DIR"
 
-# Update fstab only if missing (idempotent)
+# Update fstab only if missing
 if ! grep -q "$DISK_UUID" /etc/fstab; then
   echo "UUID=$DISK_UUID $DATA_DIR ext4 defaults,nofail 0 2" >> /etc/fstab
   log "fstab updated"
@@ -110,25 +109,11 @@ else
   log "Disk already mounted"
 fi
 
-# === Idempotent Restore Logic ===
+# Check compose file status
 if [[ ! -f "$COMPOSE_FILE" ]] || [[ ! -s "$COMPOSE_FILE" ]]; then
-  log "docker-compose.yml missing or empty → restoring from backup"
-
-  # Get latest backup
-  LATEST_BACKUP=$(gsutil ls -l "gs://$BACKUP_BUCKET/keycloak-realm-${ENVIRONMENT}-*.json" 2>/dev/null \
-                  | sort -k2 -r | head -n1 | awk '{print $3}')
-
-  if [[ -n "$LATEST_BACKUP" ]]; then
-    log "Restoring latest backup: $LATEST_BACKUP"
-    gsutil cp "$LATEST_BACKUP" /tmp/latest-realm.json
-    
-    # Optional: Also restore or regenerate compose file
-    log "docker-compose.yml will be recreated below"
-  else
-    log "No backup found - creating fresh compose file"
-  fi
+  log "docker-compose.yml missing or empty → will be created below"
 else
-  log "docker-compose.yml exists and is valid on persistent disk → good"
+  log "docker-compose.yml already exists on persistent disk"
 fi
 
 # ---- step 4: get vm internal ip for infinispan bind ----
@@ -241,19 +226,19 @@ ENVIRONMENT="$ENVIRONMENT"
 BACKUP_BUCKET="$BACKUP_BUCKET"
 COMPOSE_FILE="$COMPOSE_FILE"
 DATE=\$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-$${ENVIRONMENT}-$${DATE}.json"
-BACKUP_PATH="/tmp/$${BACKUP_FILE}"
+BACKUP_FILE="keycloak-realm-\${ENVIRONMENT}-\${DATE}.json"
+BACKUP_PATH="/tmp/\${BACKUP_FILE}"
 
-docker compose -f "$COMPOSE_FILE" exec -T keycloak \
+docker compose -f "\$COMPOSE_FILE" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=\$(docker compose -f "$COMPOSE_FILE" ps -q keycloak)
-docker cp "$${CONTAINER_ID}:/tmp/realm-export.json" "$BACKUP_PATH"
+CONTAINER_ID=\$(docker compose -f "\$COMPOSE_FILE" ps -q keycloak)
+docker cp "\${CONTAINER_ID}:/tmp/realm-export.json" "\$BACKUP_PATH"
 
-gcloud storage cp "$BACKUP_PATH" "gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
-rm -f "$BACKUP_PATH"
-echo "Backup complete: gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
+gcloud storage cp "\$BACKUP_PATH" "gs://\${BACKUP_BUCKET}/\${BACKUP_FILE}"
+rm -f "\$BACKUP_PATH"
+echo "Backup complete: gs://\${BACKUP_BUCKET}/\${BACKUP_FILE}"
 BACKUPEOF
 
 chmod +x /usr/local/bin/keycloak-backup.sh
