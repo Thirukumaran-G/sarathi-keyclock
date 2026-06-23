@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "sarthi-tfstate-YOUR_PROJECT_ID-dev"
+    bucket = "gs://sarthi-tfstate-gwx-devops-internship-dev"
     prefix = "keycloak/dev"
   }
 }

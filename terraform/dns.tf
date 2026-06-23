@@ -1,6 +1,11 @@
+data "google_dns_managed_zone" "sarthi" {
+  name    = var.dns_managed_zone_name
+  project = var.project_id
+}
+
 resource "google_dns_record_set" "keycloak" {
   project      = var.project_id
-  managed_zone = var.dns_managed_zone_name
+  managed_zone = data.google_dns_managed_zone.sarthi.name
   name         = "${local.keycloak_hostname}."
   type         = var.dns_record_type
   ttl          = var.dns_record_ttl

@@ -1,4 +1,4 @@
-project_id            = "your-gcp-project-id"
+project_id            = "gwx-devops-internship"
 region                = "us-central1"
 zone                  = "us-central1-a"
 environment           = "dev"
