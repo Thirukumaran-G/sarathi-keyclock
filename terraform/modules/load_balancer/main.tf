@@ -1,3 +1,5 @@
+# modules/load_balancer/main.tf
+
 resource "google_compute_global_address" "lb_ip" {
   project = var.project_id
   name    = var.lb_ip_name
@@ -45,26 +47,14 @@ resource "google_compute_url_map" "keycloak" {
   project         = var.project_id
   name            = "${var.lb_name}-urlmap"
   default_service = google_compute_backend_service.keycloak.id
-
-  host_rule {
-    hosts        = [var.keycloak_hostname]
-    path_matcher = "keycloak-paths"
-  }
-
-  path_matcher {
-    name            = "keycloak-paths"
-    default_service = google_compute_backend_service.keycloak.id
-  }
 }
 
-# HTTP Proxy
 resource "google_compute_target_http_proxy" "keycloak" {
   project = var.project_id
   name    = "${var.lb_name}-http-proxy"
   url_map = google_compute_url_map.keycloak.id
 }
 
-# HTTP Forwarding Rule (Only this one)
 resource "google_compute_global_forwarding_rule" "keycloak_http" {
   project               = var.project_id
   name                  = "${var.lb_name}-http-fwd"
