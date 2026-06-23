@@ -25,7 +25,7 @@ resource "google_compute_backend_service" "keycloak" {
   name                  = "${var.lb_name}-backend"
   protocol              = "HTTP"
   port_name             = var.lb_port_name
-  load_balancing_scheme = "EXTERNAL"
+  load_balancing_scheme = var.lb_scheme
   timeout_sec           = var.lb_timeout_sec
   session_affinity      = var.lb_session_affinity
 
@@ -65,5 +65,5 @@ resource "google_compute_global_forwarding_rule" "keycloak_http" {
   target                = google_compute_target_http_proxy.keycloak.id
   port_range            = "80"
   ip_address            = google_compute_global_address.lb_ip.address
-  load_balancing_scheme = "EXTERNAL"
+  load_balancing_scheme = var.lb_scheme
 }
