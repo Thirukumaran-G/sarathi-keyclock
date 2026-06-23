@@ -17,9 +17,9 @@ vm_os_login_metadata_key   = "enable-oslogin"
 vm_os_login_metadata_value = "TRUE"
 vm_scopes                  = ["cloud-platform"]
 
-shielded_secure_boot          = true
-shielded_vtpm                 = true
-shielded_integrity_monitoring = true
+shielded_secure_boot           = true
+shielded_vtpm                  = true
+shielded_integrity_monitoring  = true
 template_create_before_destroy = true
 
 mig_min_replicas       = 2
@@ -45,10 +45,10 @@ fw_iap_protocol        = "tcp"
 fw_infinispan_protocol = "tcp"
 fw_iap_port            = "22"
 
-sql_vpc_peering_prefix_length  = 16
-sql_vpc_peering_purpose        = "VPC_PEERING"
-sql_vpc_peering_address_type   = "INTERNAL"
-sql_vpc_peering_service        = "servicenetworking.googleapis.com"
+sql_vpc_peering_prefix_length       = 24
+sql_vpc_peering_purpose             = "VPC_PEERING"
+sql_vpc_peering_address_type        = "INTERNAL"
+sql_vpc_peering_service             = "servicenetworking.googleapis.com"
 sql_networking_peering_address_name = "sql-private-ip-range"
 
 cloud_sql_tier                 = "db-g1-small"
@@ -67,12 +67,12 @@ cloud_sql_private_path_enabled = true
 keycloak_db_name = "keycloak"
 keycloak_db_user = "keycloak"
 
-keycloak_version      = "26.0"
-keycloak_port         = 8080
-keycloak_admin_user   = "admin"
-keycloak_cache_mode   = "ispn"
-keycloak_cache_stack  = "jdbc-ping"
-keycloak_image_repo   = "quay.io/keycloak/keycloak"
+keycloak_version       = "26.0"
+keycloak_port          = 8080
+keycloak_admin_user    = "admin"
+keycloak_cache_mode    = "ispn"
+keycloak_cache_stack   = "jdbc-ping"
+keycloak_image_repo    = "quay.io/keycloak/keycloak"
 keycloak_start_command = "start"
 
 cloud_sql_proxy_image     = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2"
@@ -90,15 +90,15 @@ health_check_path                = "/health/started"
 health_check_max_attempts        = 36
 health_check_wait_seconds        = 10
 
-lb_protocol                    = "HTTP"
-lb_port_name                   = "http"
-lb_scheme                      = "EXTERNAL_MANAGED"
-lb_timeout_sec                 = 30
-lb_balancing_mode              = "UTILIZATION"
-lb_capacity_scaler             = 1.0
-lb_session_affinity            = "NONE"
-lb_log_sample_rate             = 1.0
-lb_http_port                   = "80"
+lb_protocol         = "HTTP"
+lb_port_name        = "http"
+lb_scheme           = "EXTERNAL_MANAGED"
+lb_timeout_sec      = 30
+lb_balancing_mode   = "UTILIZATION"
+lb_capacity_scaler  = 1.0
+lb_session_affinity = "NONE"
+lb_log_sample_rate  = 1.0
+lb_http_port        = "80"
 
 backup_retention_days     = 30
 backup_num_newer_versions = 3
@@ -114,12 +114,12 @@ gcs_writer_role                 = "roles/storage.objectCreator"
 docker_log_max_size = "100m"
 docker_log_max_file = "3"
 
-admin_password_length          = 32
-admin_password_special         = true
+admin_password_length           = 32
+admin_password_special          = true
 admin_password_override_special = "!#$%&*()-_=+[]{}:?"
-db_password_length             = 32
-db_password_special            = true
-db_password_override_special   = "!#$%&*()-_=+[]{}:?"
+db_password_length              = 32
+db_password_special             = true
+db_password_override_special    = "!#$%&*()-_=+[]{}:?"
 
 secret_replication_policy = "auto"
 secret_accessor_role      = "roles/secretmanager.secretAccessor"
