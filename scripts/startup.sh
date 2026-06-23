@@ -157,6 +157,7 @@ services:
     environment:
       KC_HOSTNAME: "$KEYCLOAK_HOSTNAME"
       KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
       KC_DB: "postgres"
       KC_DB_URL: "jdbc:postgresql://127.0.0.1:5432/$KEYCLOAK_DB_NAME"
