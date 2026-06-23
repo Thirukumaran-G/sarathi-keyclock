@@ -23,8 +23,6 @@ module "load_balancer" {
   lb_balancing_mode             = var.lb_balancing_mode
   lb_capacity_scaler            = var.lb_capacity_scaler
   lb_session_affinity           = var.lb_session_affinity
-  lb_session_cookie_name        = var.lb_session_cookie_name
-  lb_session_cookie_ttl_seconds = var.lb_session_cookie_ttl_seconds
   lb_log_sample_rate            = var.lb_log_sample_rate
   lb_https_port                 = var.lb_https_port
   lb_http_port                  = var.lb_http_port

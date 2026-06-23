@@ -348,16 +348,6 @@ variable "lb_session_affinity" {
   type        = string
 }
 
-variable "lb_session_cookie_name" {
-  description = "Session affinity cookie name"
-  type        = string
-}
-
-variable "lb_session_cookie_ttl_seconds" {
-  description = "Session affinity cookie TTL in seconds"
-  type        = number
-}
-
 variable "lb_log_sample_rate" {
   description = "Load balancer log sample rate"
   type        = number

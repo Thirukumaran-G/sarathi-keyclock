@@ -108,15 +108,6 @@ variable "lb_session_affinity" {
   type        = string
 }
 
-variable "lb_session_cookie_name" {
-  description = "Session cookie name"
-  type        = string
-}
-
-variable "lb_session_cookie_ttl_seconds" {
-  description = "Session cookie TTL seconds"
-  type        = number
-}
 
 variable "lb_log_sample_rate" {
   description = "Log sample rate"

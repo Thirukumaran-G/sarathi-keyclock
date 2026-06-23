@@ -27,15 +27,6 @@ resource "google_compute_backend_service" "keycloak" {
   timeout_sec           = var.lb_timeout_sec
   session_affinity      = var.lb_session_affinity
 
-  consistent_hash {
-    http_cookie {
-      name = var.lb_session_cookie_name
-      ttl {
-        seconds = var.lb_session_cookie_ttl_seconds
-      }
-    }
-  }
-
   backend {
     group           = var.mig_self_link
     balancing_mode  = var.lb_balancing_mode
