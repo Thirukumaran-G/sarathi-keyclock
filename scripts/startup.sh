@@ -221,8 +221,8 @@ set -euo pipefail
 
 COMPOSE_FILE="/data/keycloak/docker-compose.yml"
 BDATE=$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-$(hostname)-${BDATE}.json"
-BACKUP_PATH="/tmp/${BACKUP_FILE}"
+BACKUP_FILE="keycloak-realm-$(hostname)-$${BDATE}.json"
+BACKUP_PATH="/tmp/$${BACKUP_FILE}"
 BACKUP_BUCKET="__BACKUP_BUCKET__"
 
 docker compose -f "$COMPOSE_FILE" exec -T keycloak \
@@ -230,28 +230,15 @@ docker compose -f "$COMPOSE_FILE" exec -T keycloak \
   --file /tmp/realm-export.json
 
 CONTAINER_ID=$(docker compose -f "$COMPOSE_FILE" ps -q keycloak)
-docker cp "$CONTAINER_ID:/tmp/realm-export.json" "$BACKUP_PATH"
+docker cp "$${CONTAINER_ID}:/tmp/realm-export.json" "$${BACKUP_PATH}"
 
-gcloud storage cp "$BACKUP_PATH" "gs://${BACKUP_BUCKET}/${BACKUP_FILE}"
-rm -f "$BACKUP_PATH"
-echo "Backup complete: gs://${BACKUP_BUCKET}/${BACKUP_FILE}"
+gcloud storage cp "$${BACKUP_PATH}" "gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
+rm -f "$${BACKUP_PATH}"
+echo "Backup complete: gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
 BACKUPEOF
 
 sed -i "s|__BACKUP_BUCKET__|$BACKUP_BUCKET|g" /usr/local/bin/keycloak-backup.sh
 chmod +x /usr/local/bin/keycloak-backup.sh
-
-TMP_CRON_FILE=$(mktemp)
-crontab -l 2>/dev/null > "$TMP_CRON_FILE" || true
-
-if ! grep -Fq "/usr/local/bin/keycloak-backup.sh" "$TMP_CRON_FILE"; then
-  echo "$BACKUP_CRON_SCHEDULE /usr/local/bin/keycloak-backup.sh >> $BACKUP_LOG_PATH 2>&1" >> "$TMP_CRON_FILE"
-  crontab "$TMP_CRON_FILE"
-  log "Backup cron installed"
-else
-  log "Backup cron already present — skipping"
-fi
-
-rm -f "$TMP_CRON_FILE"
 
 # ---- step 10: journald retention ----
 log "Configuring journald retention"
