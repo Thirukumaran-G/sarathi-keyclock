@@ -159,20 +159,13 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
       KC_DB: "postgres"
-      KC_DB_URL: "jdbc:postgresql://cloudsql-proxy:5432/$KEYCLOAK_DB_NAME"
+      KC_DB_URL: "jdbc:postgresql://cloudsql-proxy:5432/keycloak?sslmode=disable"
       KC_DB_USERNAME: "$KEYCLOAK_DB_USER"
       KC_DB_PASSWORD: "$DB_PASSWORD_ESCAPED"
       KEYCLOAK_ADMIN: "admin"
       KEYCLOAK_ADMIN_PASSWORD: "$ADMIN_PASSWORD_ESCAPED"
       KC_HTTP_PORT: "$KEYCLOAK_PORT"
       KC_CACHE: "ispn"
-      KC_CACHE_STACK: "jdbc-ping"
-      JAVA_OPTS_APPEND: >-
-        -Djgroups.bind.address=$VM_IP
-        -Djgroups.jdbc_ping.connection_url=jdbc:postgresql://cloudsql-proxy:5432/$KEYCLOAK_DB_NAME
-        -Djgroups.jdbc_ping.connection_username=$KEYCLOAK_DB_USER
-        -Djgroups.jdbc_ping.connection_password=$DB_PASSWORD_ESCAPED
-        -Djgroups.tcp.bind_port=$INFINISPAN_PORT
     ports:
       - "$KEYCLOAK_PORT:$KEYCLOAK_PORT"
       - "9000:9000"
