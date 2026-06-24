@@ -67,7 +67,7 @@ cloud_sql_private_path_enabled = true
 keycloak_db_name = "keycloak"
 keycloak_db_user = "keycloak"
 
-keycloak_version       = "26.0"
+keycloak_version       = "26.1"
 keycloak_port          = 8080
 keycloak_admin_user    = "admin"
 keycloak_cache_mode    = "ispn"

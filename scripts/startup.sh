@@ -145,6 +145,7 @@ services:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
     command:
       - "--structured-logs"
+      - "--address=0.0.0.0"
       - "--port=5432"
       - "$CLOUD_SQL_CONNECTION"
     restart: unless-stopped
