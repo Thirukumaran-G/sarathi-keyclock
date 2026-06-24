@@ -30,20 +30,27 @@ LOG_TAG="keycloak-startup"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$LOG_TAG] $1"; }
 
-# ---- step 1: install docker ----
+# ---- step 1: install docker + cron ----
 log "Checking Docker"
-if ! command -v docker &>/dev/null; then
-  log "Installing Docker"
+if ! command -v docker >/dev/null 2>&1; then
+  log "Installing Docker prerequisites"
   apt-get update -qq
   apt-get install -y ca-certificates curl gnupg lsb-release cron
+
   install -m 0755 -d /etc/apt/keyrings
+  rm -f /etc/apt/keyrings/docker.gpg
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
     | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   chmod a+r /etc/apt/keyrings/docker.gpg
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+
+  rm -f /etc/apt/sources.list.d/docker.list
+  printf '%s\n' \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
     > /etc/apt/sources.list.d/docker.list
+
   apt-get update -qq
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
   systemctl enable docker
   systemctl start docker
   systemctl enable cron || true
@@ -62,6 +69,7 @@ fi
 
 # ---- step 2: docker logging to cloud logging ----
 log "Configuring Docker gcplogs driver"
+mkdir -p /etc/docker
 cat > /etc/docker/daemon.json <<EOF
 {
   "log-driver": "gcplogs",
@@ -71,7 +79,7 @@ cat > /etc/docker/daemon.json <<EOF
   }
 }
 EOF
-systemctl reload-or-restart docker || true
+systemctl restart docker
 
 # ---- step 3: data disk ----
 log "Checking data disk"
@@ -129,6 +137,7 @@ DB_PASSWORD=$(gcloud secrets versions access latest \
   --secret="$DB_SECRET_NAME" --project="$PROJECT_ID")
 log "Secrets fetched"
 
+# Escape literal $ for Docker Compose interpolation
 ADMIN_PASSWORD_ESCAPED=$(printf '%s' "$ADMIN_PASSWORD" | sed 's/\$/$$/g')
 DB_PASSWORD_ESCAPED=$(printf '%s' "$DB_PASSWORD" | sed 's/\$/$$/g')
 
