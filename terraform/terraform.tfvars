@@ -22,8 +22,8 @@ shielded_vtpm                  = true
 shielded_integrity_monitoring  = true
 template_create_before_destroy = true
 
-mig_min_replicas       = 2
-mig_max_replicas       = 5
+mig_min_replicas       = 1
+mig_max_replicas       = 2
 mig_cooldown_period    = 120
 mig_cpu_target         = 0.7
 mig_initial_delay_sec  = 300
