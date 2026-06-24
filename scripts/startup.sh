@@ -263,16 +263,16 @@ log "journald configured"
 log "Waiting for Keycloak health"
 MAX_ATTEMPTS=$HEALTH_CHECK_MAX_ATTEMPTS
 ATTEMPT=0
-until curl -sf "http://localhost:9000${HEALTH_CHECK_PATH}" >/dev/null 2>&1; do
-  ATTEMPT=$((ATTEMPT + 1))
-  if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
-    log "ERROR: Keycloak did not become healthy after $((MAX_ATTEMPTS * HEALTH_CHECK_WAIT_SECONDS))s"
+until curl -sf "http://localhost:9000$${HEALTH_CHECK_PATH}" >/dev/null 2>&1; do
+  ATTEMPT=$$((ATTEMPT + 1))
+  if [[ $$ATTEMPT -ge $$MAX_ATTEMPTS ]]; then
+    log "ERROR: Keycloak did not become healthy after $$((MAX_ATTEMPTS * HEALTH_CHECK_WAIT_SECONDS))s"
     log "--- Last docker compose logs ---"
     docker compose -f "$COMPOSE_FILE" logs --tail=50 || true
     exit 1
   fi
-  log "Attempt $ATTEMPT/$MAX_ATTEMPTS — waiting ${HEALTH_CHECK_WAIT_SECONDS}s"
-  sleep "$HEALTH_CHECK_WAIT_SECONDS"
+  log "Attempt $$ATTEMPT/$$MAX_ATTEMPTS — waiting $${HEALTH_CHECK_WAIT_SECONDS}s"
+  sleep "$$HEALTH_CHECK_WAIT_SECONDS"
 done
 
 log "Keycloak healthy — startup complete"
