@@ -195,39 +195,41 @@ log "Systemd service installed"
 
 # ---- step 9: backup cron ----
 log "Installing backup cron"
-cat > /usr/local/bin/keycloak-backup.sh <<BACKUPEOF
+cat > /usr/local/bin/keycloak-backup.sh <<'BACKUPEOF'
 #!/bin/bash
 set -euo pipefail
 COMPOSE_FILE="/data/keycloak/docker-compose.yml"
-DATE=\$$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-\$$(hostname)-\$$DATE.json"
-BACKUP_PATH="/tmp/\$$BACKUP_FILE"
-BACKUP_BUCKET="$BACKUP_BUCKET"
+DATE=$(date +%Y%m%d)
+BACKUP_FILE="keycloak-realm-$(hostname)-${DATE}.json"
+BACKUP_PATH="/tmp/${BACKUP_FILE}"
+BACKUP_BUCKET="BACKUP_BUCKET_PLACEHOLDER"
 
-docker compose -f "\$$COMPOSE_FILE" exec -T keycloak \
+docker compose -f "${COMPOSE_FILE}" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=\$$(docker compose -f "\$$COMPOSE_FILE" ps -q keycloak)
-docker cp "\$$CONTAINER_ID:/tmp/realm-export.json" "\$$BACKUP_PATH"
+CONTAINER_ID=$(docker compose -f "${COMPOSE_FILE}" ps -q keycloak)
+docker cp "${CONTAINER_ID}:/tmp/realm-export.json" "${BACKUP_PATH}"
 
-gcloud storage cp "\$$BACKUP_PATH" "gs://\$$BACKUP_BUCKET/\$$BACKUP_FILE"
-rm -f "\$$BACKUP_PATH"
-echo "Backup complete: gs://\$$BACKUP_BUCKET/\$$BACKUP_FILE"
+gcloud storage cp "${BACKUP_PATH}" "gs://${BACKUP_BUCKET}/${BACKUP_FILE}"
+rm -f "${BACKUP_PATH}"
+echo "Backup complete: gs://${BACKUP_BUCKET}/${BACKUP_FILE}"
 BACKUPEOF
 
+# Replace placeholder with actual bucket name after heredoc
+sed -i "s|BACKUP_BUCKET_PLACEHOLDER|$BACKUP_BUCKET|g" /usr/local/bin/keycloak-backup.sh
 chmod +x /usr/local/bin/keycloak-backup.sh
 
-if ! (crontab -l 2>/dev/null || true) | grep -q "/usr/local/bin/keycloak-backup.sh"; then
+EXISTING_CRON=$(crontab -l 2>/dev/null || true)
+if ! echo "$EXISTING_CRON" | grep -q "/usr/local/bin/keycloak-backup.sh"; then
   (
-    crontab -l 2>/dev/null || true
+    echo "$EXISTING_CRON"
     echo "0 2 * * * /usr/local/bin/keycloak-backup.sh >> /var/log/keycloak-backup.log 2>&1"
   ) | crontab -
   log "Backup cron installed"
 else
   log "Backup cron already present — skipping"
 fi
-
 # ---- step 10: journald retention ----
 log "Configuring journald retention"
 mkdir -p /etc/systemd/journald.conf.d
