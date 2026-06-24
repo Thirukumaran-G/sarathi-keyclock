@@ -75,10 +75,10 @@ resource "google_compute_instance_template" "keycloak" {
     scopes = var.vm_scopes
   }
 
-  # metadata = {
-  #   startup-script              = local.startup_script
-  #   (var.os_login_metadata_key) = var.os_login_metadata_value
-  # }
+  metadata = {
+    startup-script              = local.startup_script
+    # (var.os_login_metadata_key) = var.os_login_metadata_value
+  }
 
   shielded_instance_config {
     enable_secure_boot          = var.shielded_secure_boot
