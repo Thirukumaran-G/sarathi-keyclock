@@ -159,7 +159,7 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
       KC_DB: "postgres"
-      KC_DB_URL: "jdbc:postgresql://cloudsql-proxy:5432/keycloak?sslmode=disable"
+      KC_DB_URL: "jdbc:postgresql://cloudsql-proxy:5432/$KEYCLOAK_DB_NAME?sslmode=disable"
       KC_DB_USERNAME: "$KEYCLOAK_DB_USER"
       KC_DB_PASSWORD: "$DB_PASSWORD_ESCAPED"
       KEYCLOAK_ADMIN: "admin"
