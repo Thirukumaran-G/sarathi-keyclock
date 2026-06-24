@@ -83,6 +83,11 @@ variable "keycloak_port" {
   type        = number
 }
 
+variable "health_check_port" {
+  description = "Health check port"
+  type        = number
+}
+
 variable "infinispan_port" {
   description = "Infinispan JGroups port"
   type        = number

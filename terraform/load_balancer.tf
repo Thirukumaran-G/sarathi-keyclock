@@ -6,7 +6,6 @@ module "load_balancer" {
   lb_ip_name                    = local.lb_ip_name
   lb_hc_name                    = local.lb_hc_name
   mig_self_link                 = module.mig.instance_group_self_link
-  keycloak_hostname             = local.keycloak_hostname
   keycloak_port                 = var.keycloak_port
 
   health_check_port             = var.health_check_port

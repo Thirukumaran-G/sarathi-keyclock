@@ -43,7 +43,6 @@ module "instance_template" {
   environment                   = local.env
   docker_log_max_size           = var.docker_log_max_size
   docker_log_max_file           = var.docker_log_max_file
-  keycloak_hostname             = local.keycloak_hostname
   infinispan_port               = var.infinispan_port
   subnet_cidr                   = var.subnet_cidr
   disk_filesystem_type          = var.disk_filesystem_type

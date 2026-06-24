@@ -21,7 +21,8 @@ resource "google_compute_firewall" "allow_lb_to_keycloak" {
 
   allow {
     protocol = var.fw_lb_protocol
-    ports    = [tostring(var.keycloak_port)]
+    ports    = [tostring(var.keycloak_port),tostring(var.health_check_port)]
+
   }
 
   source_ranges = var.fw_lb_source_ranges

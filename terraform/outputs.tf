@@ -1,8 +1,3 @@
-output "keycloak_url" {
-  description = "Keycloak public URL"
-  value       = "https://${local.keycloak_hostname}"
-}
-
 output "lb_ip_address" {
   description = "Load balancer IP address"
   value       = module.load_balancer.lb_ip_address
@@ -31,9 +26,4 @@ output "sa_keycloak_email" {
 output "admin_secret_name" {
   description = "Secret Manager name for admin password"
   value       = module.secrets.admin_secret_name
-}
-
-output "dns_fqdn" {
-  description = "Keycloak DNS record FQDN"
-  value       = "${local.keycloak_hostname}."
 }

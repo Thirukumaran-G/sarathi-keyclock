@@ -198,10 +198,6 @@ variable "docker_log_max_file" {
   type        = string
 }
 
-variable "keycloak_hostname" {
-  description = "Keycloak FQDN"
-  type        = string
-}
 
 variable "infinispan_port" {
   description = "Infinispan JGroups port"

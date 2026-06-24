@@ -2,8 +2,6 @@ locals {
   name_prefix = "sarthi"
   env         = var.environment
 
-  keycloak_hostname = "keycloak.${var.environment}.${var.domain_name}"
-
   sa_keycloak_name    = "${local.name_prefix}-sa-keycloak-${local.env}-01"
   sa_keycloak_display = "Keycloak Service Account - ${local.env}"
 
@@ -28,7 +26,6 @@ locals {
   lb_name       = "${local.name_prefix}-lb-keycloak-${local.env}-01"
   lb_ip_name    = "${local.name_prefix}-lb-keycloak-ip-${local.env}-01"
   lb_hc_name    = "${local.name_prefix}-lb-keycloak-hc-${local.env}-01"
-  ssl_cert_name = "${local.name_prefix}-ssl-keycloak-${local.env}-01"
 
   backup_bucket_name = "${local.name_prefix}-gcs-vm-backups-${local.env}-01"
 

@@ -17,6 +17,7 @@ module "networking" {
   fw_iap_source_ranges     = var.fw_iap_source_ranges
   fw_iap_port              = var.fw_iap_port
   fw_infinispan_protocol   = var.fw_infinispan_protocol
+  health_check_port = var.health_check_port
   keycloak_port            = var.keycloak_port
   infinispan_port          = var.infinispan_port
   vm_target_tags           = local.vm_tags

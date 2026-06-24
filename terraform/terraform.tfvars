@@ -81,12 +81,12 @@ cloud_sql_proxy_port_flag = "--port=5432"
 
 compose_version = "3.8"
 
-health_check_port                = 8080
+health_check_port                = 9000
 health_check_interval_sec        = 10
 health_check_timeout_sec         = 5
 health_check_healthy_threshold   = 2
 health_check_unhealthy_threshold = 3
-health_check_path                = "/health/started"
+health_check_path                = "/health/ready"
 health_check_max_attempts        = 36
 health_check_wait_seconds        = 10
 

@@ -59,10 +59,6 @@ variable "health_check_unhealthy_threshold" {
   type        = number
 }
 
-variable "keycloak_hostname" {
-  description = "Keycloak FQDN for host rule"
-  type        = string
-}
 
 variable "lb_protocol" {
   description = "Backend protocol"

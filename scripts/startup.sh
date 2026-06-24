@@ -13,7 +13,6 @@ ADMIN_SECRET_NAME="${admin_secret_name}"
 DB_SECRET_NAME="${db_secret_name}"
 BACKUP_BUCKET="${backup_bucket_name}"
 ENVIRONMENT="${environment}"
-KEYCLOAK_HOSTNAME="${keycloak_hostname}"
 INFINISPAN_PORT="${infinispan_port}"
 
 DATA_DIR="/data/keycloak"
@@ -140,7 +139,6 @@ services:
     image: quay.io/keycloak/keycloak:$KEYCLOAK_VERSION
     command: start
     environment:
-      KC_HOSTNAME: "$KEYCLOAK_HOSTNAME"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
@@ -162,6 +160,7 @@ services:
         -Djgroups.tcp.bind_port=$INFINISPAN_PORT
     ports:
       - "$KEYCLOAK_PORT:$KEYCLOAK_PORT"
+      - "9000:9000"
     depends_on:
       - cloudsql-proxy
     restart: unless-stopped
@@ -252,7 +251,7 @@ log "journald configured"
 log "Waiting for Keycloak health"
 MAX_ATTEMPTS=60
 ATTEMPT=0
-until curl -sf "http://localhost:$KEYCLOAK_PORT/health/started" >/dev/null 2>&1; do
+until curl -sf "http://localhost:9000/health/ready" >/dev/null 2>&1; do
   ATTEMPT=$((ATTEMPT + 1))
   if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
     log "ERROR: Keycloak did not become healthy after $((MAX_ATTEMPTS * 10))s"
