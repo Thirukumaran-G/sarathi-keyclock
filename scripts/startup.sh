@@ -32,10 +32,7 @@ if ! command -v docker &>/dev/null; then
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
     | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   chmod a+r /etc/apt/keyrings/docker.gpg
-  echo "deb [arch=$(dpkg --print-architecture) \
-    signed-by=/etc/apt/keyrings/docker.gpg] \
-    https://download.docker.com/linux/ubuntu \
-    $(lsb_release -cs) stable" \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
     > /etc/apt/sources.list.d/docker.list
   apt-get update -qq
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
@@ -95,7 +92,7 @@ else
 fi
 
 if ! mountpoint -q "$DATA_DIR"; then
-  mount "$DATA_DIR" || true
+  mount "$DATA_DIR"
   log "Disk mounted at $DATA_DIR"
 else
   log "Disk already mounted"
@@ -115,17 +112,15 @@ DB_PASSWORD=$(gcloud secrets versions access latest \
   --secret="$DB_SECRET_NAME" --project="$PROJECT_ID")
 log "Secrets fetched"
 
+# Escape literal $ for Docker Compose interpolation
+ADMIN_PASSWORD_ESCAPED=${ADMIN_PASSWORD//$/$$}
+DB_PASSWORD_ESCAPED=${DB_PASSWORD//$/$$}
+
 # ---- step 6: write docker-compose.yml ----
 log "Writing docker-compose.yml"
-
-# Build connection string from bash vars (already substituted by Terraform above)
 CLOUD_SQL_CONNECTION="$PROJECT_ID:$REGION:$CLOUD_SQL_INSTANCE"
 
-# Use 'ENDDOCKER' as quoted delimiter so bash does NOT expand variables inside
-# All $VAR inside will be literal — we substitute manually using printf or env
 cat > "$COMPOSE_FILE" <<ENDDOCKER
-version: "3.8"
-
 services:
   cloudsql-proxy:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
@@ -144,19 +139,19 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
       KC_DB: "postgres"
-      KC_DB_URL: "jdbc:postgresql://127.0.0.1:5432/$KEYCLOAK_DB_NAME"
+      KC_DB_URL: "jdbc:postgresql://cloudsql-proxy:5432/$KEYCLOAK_DB_NAME"
       KC_DB_USERNAME: "$KEYCLOAK_DB_USER"
-      KC_DB_PASSWORD: "$DB_PASSWORD"
+      KC_DB_PASSWORD: "$DB_PASSWORD_ESCAPED"
       KEYCLOAK_ADMIN: "admin"
-      KEYCLOAK_ADMIN_PASSWORD: "$ADMIN_PASSWORD"
+      KEYCLOAK_ADMIN_PASSWORD: "$ADMIN_PASSWORD_ESCAPED"
       KC_HTTP_PORT: "$KEYCLOAK_PORT"
       KC_CACHE: "ispn"
       KC_CACHE_STACK: "jdbc-ping"
       JAVA_OPTS_APPEND: >-
         -Djgroups.bind.address=$VM_IP
-        -Djgroups.jdbc_ping.connection_url=jdbc:postgresql://127.0.0.1:5432/$KEYCLOAK_DB_NAME
+        -Djgroups.jdbc_ping.connection_url=jdbc:postgresql://cloudsql-proxy:5432/$KEYCLOAK_DB_NAME
         -Djgroups.jdbc_ping.connection_username=$KEYCLOAK_DB_USER
-        -Djgroups.jdbc_ping.connection_password=$DB_PASSWORD
+        -Djgroups.jdbc_ping.connection_password=$DB_PASSWORD_ESCAPED
         -Djgroups.tcp.bind_port=$INFINISPAN_PORT
     ports:
       - "$KEYCLOAK_PORT:$KEYCLOAK_PORT"
@@ -167,13 +162,15 @@ services:
 ENDDOCKER
 
 log "docker-compose.yml written"
-log "Compose file contents:"
-cat "$COMPOSE_FILE"
 
 # ---- step 7: start stack ----
 log "Starting Docker Compose stack"
 docker compose -f "$COMPOSE_FILE" up -d
 log "Stack started"
+
+# ---- optional wait: proxy container process up ----
+log "Waiting briefly for Cloud SQL proxy container"
+sleep 5
 
 # ---- step 8: systemd service ----
 log "Installing systemd service"
@@ -202,34 +199,34 @@ log "Systemd service installed"
 
 # ---- step 9: backup cron ----
 log "Installing backup cron"
-cat > /usr/local/bin/keycloak-backup.sh <<'BACKUPEOF'
+cat > /usr/local/bin/keycloak-backup.sh <<BACKUPEOF
 #!/bin/bash
 set -euo pipefail
 COMPOSE_FILE="/data/keycloak/docker-compose.yml"
-DATE=$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-$(hostname)-$DATE.json"
-BACKUP_PATH="/tmp/$BACKUP_FILE"
+DATE=\$(date +%Y%m%d)
+BACKUP_FILE="keycloak-realm-\$(hostname)-\$DATE.json"
+BACKUP_PATH="/tmp/\$BACKUP_FILE"
+BACKUP_BUCKET="$BACKUP_BUCKET"
 
-BACKUP_BUCKET=$(docker compose -f "$COMPOSE_FILE" config | grep BACKUP_BUCKET | awk '{print $2}')
-
-docker compose -f "$COMPOSE_FILE" exec -T keycloak \
+docker compose -f "\$COMPOSE_FILE" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=$(docker compose -f "$COMPOSE_FILE" ps -q keycloak)
-docker cp "$CONTAINER_ID:/tmp/realm-export.json" "$BACKUP_PATH"
+CONTAINER_ID=\$(docker compose -f "\$COMPOSE_FILE" ps -q keycloak)
+docker cp "\$CONTAINER_ID:/tmp/realm-export.json" "\$BACKUP_PATH"
 
-gcloud storage cp "$BACKUP_PATH" "gs://$BACKUP_BUCKET/$BACKUP_FILE"
-rm -f "$BACKUP_PATH"
-echo "Backup complete: gs://$BACKUP_BUCKET/$BACKUP_FILE"
+gcloud storage cp "\$BACKUP_PATH" "gs://\$BACKUP_BUCKET/\$BACKUP_FILE"
+rm -f "\$BACKUP_PATH"
+echo "Backup complete: gs://\$BACKUP_BUCKET/\$BACKUP_FILE"
 BACKUPEOF
 
 chmod +x /usr/local/bin/keycloak-backup.sh
 
-if ! crontab -l 2>/dev/null | grep -q "keycloak-backup"; then
-  (crontab -l 2>/dev/null; \
-    echo "0 2 * * * /usr/local/bin/keycloak-backup.sh >> /var/log/keycloak-backup.log 2>&1") \
-    | crontab -
+if ! (crontab -l 2>/dev/null || true) | grep -q "/usr/local/bin/keycloak-backup.sh"; then
+  (
+    crontab -l 2>/dev/null || true
+    echo "0 2 * * * /usr/local/bin/keycloak-backup.sh >> /var/log/keycloak-backup.log 2>&1"
+  ) | crontab -
   log "Backup cron installed"
 else
   log "Backup cron already present — skipping"
@@ -247,7 +244,7 @@ JOURNALEOF
 systemctl restart systemd-journald || true
 log "journald configured"
 
-# ---- step 11: health check (increased to 60 attempts = 10 mins) ----
+# ---- step 11: health check ----
 log "Waiting for Keycloak health"
 MAX_ATTEMPTS=60
 ATTEMPT=0
@@ -256,7 +253,7 @@ until curl -sf "http://localhost:9000/health/ready" >/dev/null 2>&1; do
   if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
     log "ERROR: Keycloak did not become healthy after $((MAX_ATTEMPTS * 10))s"
     log "--- Last docker compose logs ---"
-    docker compose -f "$COMPOSE_FILE" logs --tail=30
+    docker compose -f "$COMPOSE_FILE" logs --tail=50 || true
     exit 1
   fi
   log "Attempt $ATTEMPT/$MAX_ATTEMPTS — waiting 10s"
