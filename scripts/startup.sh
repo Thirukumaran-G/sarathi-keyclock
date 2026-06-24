@@ -35,7 +35,7 @@ log "Checking Docker"
 if ! command -v docker &>/dev/null; then
   log "Installing Docker"
   apt-get update -qq
-  apt-get install -y ca-certificates curl gnupg lsb-release
+  apt-get install -y ca-certificates curl gnupg lsb-release cron
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
     | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -46,9 +46,18 @@ if ! command -v docker &>/dev/null; then
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
   systemctl enable docker
   systemctl start docker
+  systemctl enable cron || true
+  systemctl start cron || true
   log "Docker installed"
 else
   log "Docker present — skipping"
+  if ! command -v crontab >/dev/null 2>&1; then
+    log "Installing cron"
+    apt-get update -qq
+    apt-get install -y cron
+  fi
+  systemctl enable cron || true
+  systemctl start cron || true
 fi
 
 # ---- step 2: docker logging to cloud logging ----
@@ -120,7 +129,6 @@ DB_PASSWORD=$(gcloud secrets versions access latest \
   --secret="$DB_SECRET_NAME" --project="$PROJECT_ID")
 log "Secrets fetched"
 
-# Escape literal $ for Docker Compose interpolation
 ADMIN_PASSWORD_ESCAPED=$(printf '%s' "$ADMIN_PASSWORD" | sed 's/\$/$$/g')
 DB_PASSWORD_ESCAPED=$(printf '%s' "$DB_PASSWORD" | sed 's/\$/$$/g')
 
@@ -208,34 +216,36 @@ cat > /usr/local/bin/keycloak-backup.sh <<BACKUPEOF
 set -euo pipefail
 COMPOSE_FILE="/data/keycloak/docker-compose.yml"
 BDATE=\$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-\$(hostname)-\${BDATE}.json"
-BACKUP_PATH="/tmp/\${BACKUP_FILE}"
+BACKUP_FILE="keycloak-realm-\$(hostname)-$${BDATE}.json"
+BACKUP_PATH="/tmp/$${BACKUP_FILE}"
 BACKUP_BUCKET="$BACKUP_BUCKET"
 
-docker compose -f "\${COMPOSE_FILE}" exec -T keycloak \
+docker compose -f "$${COMPOSE_FILE}" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=\$(docker compose -f "\${COMPOSE_FILE}" ps -q keycloak)
-docker cp "\${CONTAINER_ID}:/tmp/realm-export.json" "\${BACKUP_PATH}"
+CONTAINER_ID=\$(docker compose -f "$${COMPOSE_FILE}" ps -q keycloak)
+docker cp "$${CONTAINER_ID}:/tmp/realm-export.json" "$${BACKUP_PATH}"
 
-gcloud storage cp "\${BACKUP_PATH}" "gs://\${BACKUP_BUCKET}/\${BACKUP_FILE}"
-rm -f "\${BACKUP_PATH}"
-echo "Backup complete: gs://\${BACKUP_BUCKET}/\${BACKUP_FILE}"
+gcloud storage cp "$${BACKUP_PATH}" "gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
+rm -f "$${BACKUP_PATH}"
+echo "Backup complete: gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
 BACKUPEOF
 
 chmod +x /usr/local/bin/keycloak-backup.sh
 
-EXISTING_CRON=$(crontab -l 2>/dev/null || true)
-if ! echo "$EXISTING_CRON" | grep -q "/usr/local/bin/keycloak-backup.sh"; then
-  (
-    echo "$EXISTING_CRON"
-    echo "$BACKUP_CRON_SCHEDULE /usr/local/bin/keycloak-backup.sh >> $BACKUP_LOG_PATH 2>&1"
-  ) | crontab -
+TMP_CRON_FILE=$(mktemp)
+crontab -l 2>/dev/null > "$TMP_CRON_FILE" || true
+
+if ! grep -Fq "/usr/local/bin/keycloak-backup.sh" "$TMP_CRON_FILE"; then
+  echo "$BACKUP_CRON_SCHEDULE /usr/local/bin/keycloak-backup.sh >> $BACKUP_LOG_PATH 2>&1" >> "$TMP_CRON_FILE"
+  crontab "$TMP_CRON_FILE"
   log "Backup cron installed"
 else
   log "Backup cron already present — skipping"
 fi
+
+rm -f "$TMP_CRON_FILE"
 
 # ---- step 10: journald retention ----
 log "Configuring journald retention"
@@ -262,7 +272,7 @@ until curl -sf "http://localhost:9000${HEALTH_CHECK_PATH}" >/dev/null 2>&1; do
     exit 1
   fi
   log "Attempt $ATTEMPT/$MAX_ATTEMPTS — waiting ${HEALTH_CHECK_WAIT_SECONDS}s"
-  sleep $HEALTH_CHECK_WAIT_SECONDS
+  sleep "$HEALTH_CHECK_WAIT_SECONDS"
 done
 
 log "Keycloak healthy — startup complete"
