@@ -32,7 +32,7 @@ if ! command -v docker &>/dev/null; then
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
     | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   chmod a+r /etc/apt/keyrings/docker.gpg
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+  echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable" \
     > /etc/apt/sources.list.d/docker.list
   apt-get update -qq
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
@@ -60,32 +60,32 @@ systemctl reload-or-restart docker || true
 log "Checking data disk"
 DATA_DEVICE=""
 for dev in /dev/disk/by-id/*; do
-  if [[ "$dev" == *"$DATA_DEVICE_NAME"* ]] && [[ "$dev" != *"-part"* ]]; then
-    DATA_DEVICE=$(readlink -f "$dev")
+  if [[ "$$dev" == *"$DATA_DEVICE_NAME"* ]] && [[ "$$dev" != *"-part"* ]]; then
+    DATA_DEVICE=$$(readlink -f "$$dev")
     break
   fi
 done
 
-if [[ -z "$DATA_DEVICE" ]]; then
+if [[ -z "$$DATA_DEVICE" ]]; then
   log "ERROR: data disk $DATA_DEVICE_NAME not found"
   exit 1
 fi
 
-log "Data disk found: $DATA_DEVICE"
+log "Data disk found: $$DATA_DEVICE"
 
-if ! blkid "$DATA_DEVICE" | grep -q "TYPE="; then
-  log "New blank disk detected → Formatting with ext4"
-  mkfs.ext4 -F "$DATA_DEVICE"
+if ! blkid "$$DATA_DEVICE" | grep -q "TYPE="; then
+  log "New blank disk detected -> Formatting with ext4"
+  mkfs.ext4 -F "$$DATA_DEVICE"
   log "Disk formatted"
 else
-  log "Disk already has filesystem → skipping format"
+  log "Disk already has filesystem -> skipping format"
 fi
 
-DISK_UUID=$(blkid -s UUID -o value "$DATA_DEVICE")
+DISK_UUID=$$(blkid -s UUID -o value "$$DATA_DEVICE")
 mkdir -p "$DATA_DIR"
 
-if ! grep -q "$DISK_UUID" /etc/fstab; then
-  echo "UUID=$DISK_UUID $DATA_DIR ext4 defaults,nofail 0 2" >> /etc/fstab
+if ! grep -q "$$DISK_UUID" /etc/fstab; then
+  echo "UUID=$$DISK_UUID $DATA_DIR ext4 defaults,nofail 0 2" >> /etc/fstab
   log "fstab updated"
 else
   log "fstab entry already exists"
@@ -99,22 +99,22 @@ else
 fi
 
 # ---- step 4: vm ip ----
-VM_IP=$(curl -sf \
+VM_IP=$$(curl -sf \
   "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip" \
   -H "Metadata-Flavor: Google")
-log "VM internal IP: $VM_IP"
+log "VM internal IP: $$VM_IP"
 
 # ---- step 5: fetch secrets ----
 log "Fetching secrets"
-ADMIN_PASSWORD=$(gcloud secrets versions access latest \
+ADMIN_PASSWORD=$$(gcloud secrets versions access latest \
   --secret="$ADMIN_SECRET_NAME" --project="$PROJECT_ID")
-DB_PASSWORD=$(gcloud secrets versions access latest \
+DB_PASSWORD=$$(gcloud secrets versions access latest \
   --secret="$DB_SECRET_NAME" --project="$PROJECT_ID")
 log "Secrets fetched"
 
 # Escape literal $ for Docker Compose interpolation
-ADMIN_PASSWORD_ESCAPED=${ADMIN_PASSWORD//$/$$}
-DB_PASSWORD_ESCAPED=${DB_PASSWORD//$/$$}
+ADMIN_PASSWORD_ESCAPED=$$(printf '%s' "$$ADMIN_PASSWORD" | sed 's/\$/$$/g')
+DB_PASSWORD_ESCAPED=$$(printf '%s' "$$DB_PASSWORD" | sed 's/\$/$$/g')
 
 # ---- step 6: write docker-compose.yml ----
 log "Writing docker-compose.yml"
@@ -141,17 +141,17 @@ services:
       KC_DB: "postgres"
       KC_DB_URL: "jdbc:postgresql://cloudsql-proxy:5432/$KEYCLOAK_DB_NAME"
       KC_DB_USERNAME: "$KEYCLOAK_DB_USER"
-      KC_DB_PASSWORD: "$DB_PASSWORD_ESCAPED"
+      KC_DB_PASSWORD: "$$DB_PASSWORD_ESCAPED"
       KEYCLOAK_ADMIN: "admin"
-      KEYCLOAK_ADMIN_PASSWORD: "$ADMIN_PASSWORD_ESCAPED"
+      KEYCLOAK_ADMIN_PASSWORD: "$$ADMIN_PASSWORD_ESCAPED"
       KC_HTTP_PORT: "$KEYCLOAK_PORT"
       KC_CACHE: "ispn"
       KC_CACHE_STACK: "jdbc-ping"
       JAVA_OPTS_APPEND: >-
-        -Djgroups.bind.address=$VM_IP
+        -Djgroups.bind.address=$$VM_IP
         -Djgroups.jdbc_ping.connection_url=jdbc:postgresql://cloudsql-proxy:5432/$KEYCLOAK_DB_NAME
         -Djgroups.jdbc_ping.connection_username=$KEYCLOAK_DB_USER
-        -Djgroups.jdbc_ping.connection_password=$DB_PASSWORD_ESCAPED
+        -Djgroups.jdbc_ping.connection_password=$$DB_PASSWORD_ESCAPED
         -Djgroups.tcp.bind_port=$INFINISPAN_PORT
     ports:
       - "$KEYCLOAK_PORT:$KEYCLOAK_PORT"
@@ -167,10 +167,6 @@ log "docker-compose.yml written"
 log "Starting Docker Compose stack"
 docker compose -f "$COMPOSE_FILE" up -d
 log "Stack started"
-
-# ---- optional wait: proxy container process up ----
-log "Waiting briefly for Cloud SQL proxy container"
-sleep 5
 
 # ---- step 8: systemd service ----
 log "Installing systemd service"
@@ -203,21 +199,21 @@ cat > /usr/local/bin/keycloak-backup.sh <<BACKUPEOF
 #!/bin/bash
 set -euo pipefail
 COMPOSE_FILE="/data/keycloak/docker-compose.yml"
-DATE=\$(date +%Y%m%d)
-BACKUP_FILE="keycloak-realm-\$(hostname)-\$DATE.json"
-BACKUP_PATH="/tmp/\$BACKUP_FILE"
+DATE=\$$(date +%Y%m%d)
+BACKUP_FILE="keycloak-realm-\$$(hostname)-\$$DATE.json"
+BACKUP_PATH="/tmp/\$$BACKUP_FILE"
 BACKUP_BUCKET="$BACKUP_BUCKET"
 
-docker compose -f "\$COMPOSE_FILE" exec -T keycloak \
+docker compose -f "\$$COMPOSE_FILE" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=\$(docker compose -f "\$COMPOSE_FILE" ps -q keycloak)
-docker cp "\$CONTAINER_ID:/tmp/realm-export.json" "\$BACKUP_PATH"
+CONTAINER_ID=\$$(docker compose -f "\$$COMPOSE_FILE" ps -q keycloak)
+docker cp "\$$CONTAINER_ID:/tmp/realm-export.json" "\$$BACKUP_PATH"
 
-gcloud storage cp "\$BACKUP_PATH" "gs://\$BACKUP_BUCKET/\$BACKUP_FILE"
-rm -f "\$BACKUP_PATH"
-echo "Backup complete: gs://\$BACKUP_BUCKET/\$BACKUP_FILE"
+gcloud storage cp "\$$BACKUP_PATH" "gs://\$$BACKUP_BUCKET/\$$BACKUP_FILE"
+rm -f "\$$BACKUP_PATH"
+echo "Backup complete: gs://\$$BACKUP_BUCKET/\$$BACKUP_FILE"
 BACKUPEOF
 
 chmod +x /usr/local/bin/keycloak-backup.sh
@@ -249,14 +245,14 @@ log "Waiting for Keycloak health"
 MAX_ATTEMPTS=60
 ATTEMPT=0
 until curl -sf "http://localhost:9000/health/ready" >/dev/null 2>&1; do
-  ATTEMPT=$((ATTEMPT + 1))
-  if [[ $ATTEMPT -ge $MAX_ATTEMPTS ]]; then
-    log "ERROR: Keycloak did not become healthy after $((MAX_ATTEMPTS * 10))s"
+  ATTEMPT=$$((ATTEMPT + 1))
+  if [[ $$ATTEMPT -ge $$MAX_ATTEMPTS ]]; then
+    log "ERROR: Keycloak did not become healthy after $$((MAX_ATTEMPTS * 10))s"
     log "--- Last docker compose logs ---"
     docker compose -f "$COMPOSE_FILE" logs --tail=50 || true
     exit 1
   fi
-  log "Attempt $ATTEMPT/$MAX_ATTEMPTS — waiting 10s"
+  log "Attempt $$ATTEMPT/$$MAX_ATTEMPTS — waiting 10s"
   sleep 10
 done
 
