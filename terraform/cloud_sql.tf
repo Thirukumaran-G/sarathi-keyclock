@@ -11,7 +11,7 @@ module "cloud_sql" {
   db_name                     = var.keycloak_db_name
   db_user                     = var.keycloak_db_user
   db_password                 = module.secrets.db_password_value
-  network_self_link           = module.networking.network_self_linkjdbc:postgresql://cloudsql-proxy:5432/keycloak?sslmode=disable
+  network_self_link           = module.networking.network_self_link
   peering_address_name        = local.sql_peering_address_name
   peering_prefix_length       = var.sql_vpc_peering_prefix_length
   peering_purpose             = var.sql_vpc_peering_purpose
