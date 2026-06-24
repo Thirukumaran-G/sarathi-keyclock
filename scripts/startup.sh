@@ -34,6 +34,7 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$LOG_TAG] $1"; }
 log "Checking Docker"
 if ! command -v docker >/dev/null 2>&1; then
   log "Installing Docker prerequisites"
+  export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y ca-certificates curl gnupg lsb-release cron
 
@@ -102,8 +103,6 @@ if ! blkid "$DATA_DEVICE" | grep -q "TYPE="; then
   log "New blank disk detected -> Formatting with ext4"
   mkfs.ext4 -F "$DATA_DEVICE"
   log "Disk formatted"
-else
-  log "Disk already has filesystem -> skipping format"
 fi
 
 DISK_UUID=$(blkid -s UUID -o value "$DATA_DEVICE")
@@ -112,15 +111,11 @@ mkdir -p "$DATA_DIR"
 if ! grep -q "$DISK_UUID" /etc/fstab; then
   echo "UUID=$DISK_UUID $DATA_DIR ext4 defaults,nofail 0 2" >> /etc/fstab
   log "fstab updated"
-else
-  log "fstab entry already exists"
 fi
 
 if ! mountpoint -q "$DATA_DIR"; then
   mount "$DATA_DIR"
   log "Disk mounted at $DATA_DIR"
-else
-  log "Disk already mounted"
 fi
 
 # ---- step 4: vm ip ----
@@ -137,7 +132,6 @@ DB_PASSWORD=$(gcloud secrets versions access latest \
   --secret="$DB_SECRET_NAME" --project="$PROJECT_ID")
 log "Secrets fetched"
 
-# Escape literal $ for Docker Compose interpolation
 ADMIN_PASSWORD_ESCAPED=$(printf '%s' "$ADMIN_PASSWORD" | sed 's/\$/$$/g')
 DB_PASSWORD_ESCAPED=$(printf '%s' "$DB_PASSWORD" | sed 's/\$/$$/g')
 
@@ -245,15 +239,11 @@ chmod +x /usr/local/bin/keycloak-backup.sh
 
 TMP_CRON_FILE=$(mktemp)
 crontab -l 2>/dev/null > "$TMP_CRON_FILE" || true
-
 if ! grep -Fq "/usr/local/bin/keycloak-backup.sh" "$TMP_CRON_FILE"; then
   echo "$BACKUP_CRON_SCHEDULE /usr/local/bin/keycloak-backup.sh >> $BACKUP_LOG_PATH 2>&1" >> "$TMP_CRON_FILE"
   crontab "$TMP_CRON_FILE"
   log "Backup cron installed"
-else
-  log "Backup cron already present — skipping"
 fi
-
 rm -f "$TMP_CRON_FILE"
 
 # ---- step 10: journald retention ----
