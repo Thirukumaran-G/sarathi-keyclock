@@ -25,7 +25,7 @@ BACKUP_LOG_PATH="${backup_log_path}"
 
 DATA_DIR="/data/keycloak"
 COMPOSE_FILE="$DATA_DIR/docker-compose.yml"
-DATA_DEVICE_NAME="data-disk"
+DATA_DEVICE_NAME="keycloak-data"
 LOG_TAG="keycloak-startup"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$LOG_TAG] $1"; }
@@ -137,7 +137,7 @@ DB_PASSWORD_ESCAPED=$(printf '%s' "$DB_PASSWORD" | sed 's/\$/$$/g')
 
 # ---- step 6: write docker-compose.yml ----
 log "Writing docker-compose.yml"
-CLOUD_SQL_CONNECTION="$CLOUD_SQL_INSTANCE"
+CLOUD_SQL_CONNECTION="$PROJECT_ID:$REGION:$CLOUD_SQL_INSTANCE"
 
 cat > "$COMPOSE_FILE" <<ENDDOCKER
 services:
@@ -166,7 +166,7 @@ services:
       KEYCLOAK_ADMIN: "admin"
       KEYCLOAK_ADMIN_PASSWORD: "$ADMIN_PASSWORD_ESCAPED"
       KC_HTTP_PORT: "$KEYCLOAK_PORT"
-      KC_CACHE: "local"
+      KC_CACHE: "ispn"
     ports:
       - "$KEYCLOAK_PORT:$KEYCLOAK_PORT"
       - "9000:9000"
@@ -216,18 +216,15 @@ set -euo pipefail
 
 COMPOSE_FILE="/data/keycloak/docker-compose.yml"
 BDATE=$(date +%Y%m%d)
-BACKUP_BUCKET="__BACKUP_BUCKET__"
 BACKUP_FILE="keycloak-realm-$(hostname)-$${BDATE}.json"
 BACKUP_PATH="/tmp/$${BACKUP_FILE}"
+BACKUP_BUCKET="__BACKUP_BUCKET__"
 
-docker compose -f "$${COMPOSE_FILE}" exec -T \
-  -e KC_HEALTH_ENABLED=false \
-  -e KC_HTTP_ENABLED=false \
-  keycloak \
+docker compose -f "$COMPOSE_FILE" exec -T keycloak \
   /opt/keycloak/bin/kc.sh export \
   --file /tmp/realm-export.json
 
-CONTAINER_ID=$(docker compose -f "$${COMPOSE_FILE}" ps -q keycloak)
+CONTAINER_ID=$(docker compose -f "$COMPOSE_FILE" ps -q keycloak)
 docker cp "$${CONTAINER_ID}:/tmp/realm-export.json" "$${BACKUP_PATH}"
 
 gcloud storage cp "$${BACKUP_PATH}" "gs://$${BACKUP_BUCKET}/$${BACKUP_FILE}"
@@ -237,8 +234,6 @@ BACKUPEOF
 
 sed -i "s|__BACKUP_BUCKET__|$BACKUP_BUCKET|g" /usr/local/bin/keycloak-backup.sh
 chmod +x /usr/local/bin/keycloak-backup.sh
-(crontab -l 2>/dev/null; echo "$BACKUP_CRON_SCHEDULE /usr/local/bin/keycloak-backup.sh >> $BACKUP_LOG_PATH 2>&1") | crontab -
-log "Backup cron registered: $BACKUP_CRON_SCHEDULE"
 
 # ---- step 10: journald retention ----
 log "Configuring journald retention"
